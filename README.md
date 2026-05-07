@@ -1,4 +1,4 @@
-# 📊 Flowchart Editor with PDF Export
+# (Fully AI) 📊 Flowchart Editor with PDF Export
 
 A modern, browser-based flowchart editor built with Mermaid.js. Create professional flowcharts and export them to PDF with perfect print formatting.
 
