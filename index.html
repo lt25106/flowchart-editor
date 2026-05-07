@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flowchart Editor - PDF Export</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <title>Visual Flowchart Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * {
@@ -14,178 +14,271 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
-            color: #333;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .toolbar {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .tool-section {
+            margin-bottom: 20px;
+        }
+
+        .tool-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .tool-btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: grab;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tool-btn:active {
+            cursor: grabbing;
+        }
+
+        .icon {
+            font-size: 16px;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
+            padding: 15px 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .header h1 {
-            font-size: 28px;
-            margin-bottom: 5px;
+            font-size: 20px;
         }
 
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
-        .container {
-            display: flex;
-            height: calc(100vh - 120px);
-            gap: 0;
-            max-width: 100%;
-        }
-
-        .editor-panel {
+        .canvas {
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: white;
-            border-right: 1px solid #ddd;
+            background: #fafafa;
+            position: relative;
             overflow: hidden;
-        }
-
-        .editor-toolbar {
-            padding: 15px;
-            background: #f9f9f9;
-            border-bottom: 1px solid #e0e0e0;
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            align-items: center;
+            justify-content: center;
         }
 
-        .editor-toolbar button {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
+        .canvas-content {
+            position: relative;
+            width: 100%;
+            height: 100%;
             background: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
+            overflow: auto;
+            background-image: 
+                linear-gradient(0deg, transparent 24%, rgba(200,200,200,.05) 25%, rgba(200,200,200,.05) 26%, transparent 27%, transparent 74%, rgba(200,200,200,.05) 75%, rgba(200,200,200,.05) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(200,200,200,.05) 25%, rgba(200,200,200,.05) 26%, transparent 27%, transparent 74%, rgba(200,200,200,.05) 75%, rgba(200,200,200,.05) 76%, transparent 77%, transparent);
+            background-size: 50px 50px;
+        }
+
+        .node {
+            position: absolute;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            padding: 12px 16px;
+            min-width: 120px;
+            cursor: move;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            user-select: none;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .editor-toolbar button:hover {
+        .node:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #764ba2;
+        }
+
+        .node.selected {
             background: #667eea;
             color: white;
-            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
-        .editor-toolbar button.active {
-            background: #667eea;
+        .node.diamond {
+            border-radius: 0;
+            transform: rotate(45deg);
+            min-width: 100px;
+            min-height: 100px;
+        }
+
+        .node.diamond-text {
+            transform: rotate(-45deg);
+        }
+
+        .node.circle {
+            border-radius: 50%;
+            min-width: 100px;
+            min-height: 100px;
+            padding: 8px;
+        }
+
+        .node-close {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4444;
             color: white;
-            border-color: #667eea;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: none;
+            font-size: 14px;
+            padding: 0;
+            line-height: 1;
         }
 
-        .template-section {
-            padding: 10px 15px;
-            border-bottom: 1px solid #e0e0e0;
+        .node:hover .node-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .template-section label {
+        .node-input {
+            display: none;
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            width: calc(100% - 16px);
+            padding: 4px;
+            border: none;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .node.editing .node-input {
+            display: block;
+        }
+
+        .node.editing {
+            padding: 0;
+        }
+
+        .properties-panel {
+            width: 280px;
+            background: white;
+            border-left: 1px solid #ddd;
+            padding: 15px;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+        }
+
+        .properties-section {
+            margin-bottom: 20px;
+        }
+
+        .properties-label {
             font-size: 12px;
             font-weight: 600;
-            display: block;
-            margin-bottom: 8px;
             color: #666;
             text-transform: uppercase;
+            margin-bottom: 8px;
         }
 
-        .template-buttons {
+        .property-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .color-picker {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
 
-        .template-buttons button {
-            padding: 6px 10px;
-            font-size: 11px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 3px;
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
             cursor: pointer;
+            border: 2px solid transparent;
             transition: all 0.2s;
         }
 
-        .template-buttons button:hover {
-            background: #e0e0e0;
-            border-color: #999;
+        .color-option:hover {
+            transform: scale(1.1);
         }
 
-        #editor {
-            flex: 1;
-            padding: 15px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 13px;
-            border: none;
-            resize: none;
-            background: #fafafa;
-            color: #333;
-        }
-
-        .preview-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: white;
-            overflow: hidden;
-        }
-
-        .preview-header {
-            padding: 15px;
-            background: #f9f9f9;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
-            font-weight: 600;
-            color: #666;
-        }
-
-        #preview {
-            flex: 1;
-            overflow: auto;
-            padding: 20px;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .mermaid {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 4px;
-            border-left: 3px solid #c33;
-            font-size: 12px;
-            margin: 10px 0;
-        }
-
-        .success-message {
-            background: #efe;
-            color: #3c3;
-            padding: 10px;
-            border-radius: 4px;
-            border-left: 3px solid #3c3;
-            font-size: 12px;
-            margin: 10px 0;
+        .color-option.selected {
+            border-color: #333;
         }
 
         .footer {
+            padding: 15px 20px;
             background: #f9f9f9;
-            padding: 15px;
             border-top: 1px solid #ddd;
             display: flex;
             gap: 10px;
@@ -193,211 +286,360 @@
             justify-content: center;
         }
 
-        .footer button {
-            padding: 10px 20px;
+        .btn {
+            padding: 10px 16px;
             border: 1px solid #ddd;
             background: white;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
             transition: all 0.2s;
         }
 
-        .footer button:hover {
+        .btn:hover {
             background: #667eea;
             color: white;
             border-color: #667eea;
         }
 
-        .footer button.primary {
+        .btn.primary {
             background: #667eea;
             color: white;
             border-color: #667eea;
         }
 
-        .footer button.primary:hover {
+        .btn.primary:hover {
             background: #764ba2;
-            border-color: #764ba2;
         }
 
         @media print {
-            body, .header, .editor-panel, .footer, .editor-toolbar, .template-section {
+            .sidebar, .header, .properties-panel, .footer {
                 display: none;
             }
-
-            .container {
-                height: auto;
-            }
-
-            .preview-panel {
-                border: none;
-                box-shadow: none;
-            }
-
-            #preview {
+            .canvas {
                 background: white;
-                padding: 0;
+            }
+            .canvas-content {
+                background: white;
             }
         }
 
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-                height: auto;
-                min-height: 100vh;
-            }
-
-            .editor-panel {
-                border-right: none;
-                border-bottom: 1px solid #ddd;
-                max-height: 50vh;
-            }
-
-            .preview-panel {
-                max-height: 50vh;
-            }
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
         }
 
-        .hidden {
-            display: none;
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📊 Flowchart Editor</h1>
-        <p>Create professional flowcharts and export to PDF</p>
-    </div>
-
-    <div class="container">
-        <div class="editor-panel">
-            <div class="editor-toolbar">
-                <button onclick="loadTemplate('simple')" class="template-btn">📋 Simple Flow</button>
-                <button onclick="loadTemplate('decision')" class="template-btn">🔀 Decision Tree</button>
-                <button onclick="loadTemplate('process')" class="template-btn">⚙️ Process Flow</button>
-                <button onclick="loadTemplate('swimlane')" class="template-btn">🏊 Swimlane</button>
-                <button onclick="toggleEditMode()" id="editBtn">✏️ Edit Code</button>
+    <div class="sidebar">
+        <div class="sidebar-header">📊 Elements</div>
+        <div class="toolbar">
+            <div class="tool-section">
+                <div class="tool-section-title">Shapes</div>
+                <button class="tool-btn" draggable="true" data-type="rect">
+                    <span class="icon">▭</span> Rectangle
+                </button>
+                <button class="tool-btn" draggable="true" data-type="diamond">
+                    <span class="icon">◇</span> Diamond
+                </button>
+                <button class="tool-btn" draggable="true" data-type="circle">
+                    <span class="icon">●</span> Circle
+                </button>
+                <button class="tool-btn" draggable="true" data-type="roundrect">
+                    <span class="icon">◎</span> Rounded
+                </button>
             </div>
 
-            <div class="template-section hidden" id="templateHelp">
-                <label>📝 Mermaid Syntax Tips</label>
-                <div style="font-size: 12px; color: #666; line-height: 1.6;">
-                    <code>A["Box"]</code> | <code>B{"Diamond"}</code> | <code>C("Circle")</code><br>
-                    <code>A --> B</code> arrows | <code>A -->|Label| B</code> labels<br>
-                    <code>style A fill:#90EE90</code> colors
+            <div class="tool-section">
+                <div class="tool-section-title">Special</div>
+                <button class="tool-btn" draggable="true" data-type="start">
+                    <span class="icon">⏺</span> Start
+                </button>
+                <button class="tool-btn" draggable="true" data-type="end">
+                    <span class="icon">⏹</span> End
+                </button>
+            </div>
+
+            <div class="tool-section">
+                <div class="tool-section-title">Actions</div>
+                <button class="tool-btn" onclick="clearCanvas()" style="cursor: pointer; border: 2px solid #ff4444; color: #ff4444;">
+                    <span class="icon">🗑</span> Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="header">
+            <h1>✏️ Visual Flowchart Editor</h1>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" onclick="exportPDF()">📑 PDF</button>
+                <button class="btn" onclick="exportPNG()">🖼️ PNG</button>
+            </div>
+        </div>
+
+        <div class="canvas">
+            <div class="canvas-content" id="canvas"></div>
+        </div>
+
+        <div class="footer">
+            <button class="btn primary" onclick="exportPDF()">📑 Export to PDF</button>
+            <button class="btn" onclick="exportPNG()">🖼️ Export as PNG</button>
+            <button class="btn" onclick="window.print()">🖨️ Print</button>
+        </div>
+    </div>
+
+    <div class="properties-panel">
+        <div id="empty-properties" class="empty-state">
+            <div class="empty-state-icon">👆</div>
+            <div class="empty-state-text">Select a node to edit properties</div>
+        </div>
+        <div id="properties-content" style="display: none;">
+            <div class="properties-section">
+                <div class="properties-label">Text</div>
+                <input type="text" class="property-input" id="nodeText" placeholder="Enter text...">
+            </div>
+
+            <div class="properties-section">
+                <div class="properties-label">Color</div>
+                <div class="color-picker">
+                    <div class="color-option" style="background: #90EE90;" data-color="#90EE90" title="Green"></div>
+                    <div class="color-option" style="background: #FFB6C6;" data-color="#FFB6C6" title="Red"></div>
+                    <div class="color-option" style="background: #FFE4B5;" data-color="#FFE4B5" title="Orange"></div>
+                    <div class="color-option" style="background: #ADD8E6;" data-color="#ADD8E6" title="Blue"></div>
+                    <div class="color-option" style="background: #E6E6FA;" data-color="#E6E6FA" title="Purple"></div>
+                    <div class="color-option" style="background: #FFFACD;" data-color="#FFFACD" title="Yellow"></div>
                 </div>
             </div>
 
-            <textarea id="editor" spellcheck="false" placeholder="Enter Mermaid flowchart syntax here...
-
-Example:
-flowchart TD
-    A[Start] --> B[Process]
-    B --> C{Decision?}
-    C -->|Yes| D[End]
-    C -->|No| B"></textarea>
-        </div>
-
-        <div class="preview-panel">
-            <div class="preview-header">👁️ Preview</div>
-            <div id="preview">
-                <div class="mermaid" id="mermaidDiagram"></div>
+            <div class="properties-section">
+                <div class="properties-label">Actions</div>
+                <button class="btn" onclick="deleteSelectedNode()" style="background: #ff4444; color: white; border-color: #ff4444; width: 100%;">🗑️ Delete Node</button>
             </div>
         </div>
     </div>
 
-    <div class="footer">
-        <button class="primary" onclick="exportPDF()">📑 Export to PDF</button>
-        <button onclick="exportSVG()">📥 SVG Export</button>
-        <button onclick="exportJSON()">📄 JSON Export</button>
-        <button onclick="window.print()">🖨️ Print</button>
-        <button onclick="copyToClipboard()">📋 Copy</button>
-    </div>
-
     <script>
-        mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', theme: 'default' });
+        let nodes = [];
+        let selectedNode = null;
+        let nodeIdCounter = 0;
+        let isDraggingFromToolbar = false;
+        let draggedType = null;
 
-        const templates = {
-            simple: `flowchart TD
-    A["Start"] --> B["Step 1"]
-    B --> C["Step 2"]
-    C --> D["End"]
-    
-    style A fill:#90EE90
-    style D fill:#FFB6C6`,
+        const canvas = document.getElementById('canvas');
+        const nodeText = document.getElementById('nodeText');
+        const emptyProperties = document.getElementById('empty-properties');
+        const propertiesContent = document.getElementById('properties-content');
 
-            decision: `flowchart TD
-    A["Start"] --> B["Validate Input"]
-    B --> C{"Valid?"}
-    C -->|Yes| D["Process Data"]
-    C -->|No| E["Show Error"]
-    D --> F["End"]
-    E --> F
-    
-    style A fill:#90EE90
-    style F fill:#FFB6C6
-    style C fill:#FFE4B5`,
+        // Toolbar drag start
+        document.querySelectorAll('.tool-btn[data-type]').forEach(btn => {
+            btn.addEventListener('dragstart', (e) => {
+                isDraggingFromToolbar = true;
+                draggedType = btn.dataset.type;
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
 
-            process: `flowchart LR
-    A["Receive Request"] --> B["Validate"]
-    B --> C{"Check Status"}
-    C -->|Approved| D["Process"]
-    C -->|Rejected| E["Notify User"]
-    D --> F["Send Response"]
-    E --> F
-    F --> G["Done"]
-    
-    style A fill:#ADD8E6
-    style G fill:#90EE90
-    style E fill:#FFB6C6`,
+        // Canvas drop
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
 
-            swimlane: `flowchart TD
-    subgraph Team1["Frontend Team"]
-        A["Design UI"] --> B["Implement Components"]
-    end
-    subgraph Team2["Backend Team"]
-        C["Design API"] --> D["Implement Endpoints"]
-    end
-    subgraph Team3["QA Team"]
-        E["Test Features"] --> F["Report Issues"]
-    end
-    
-    B --> C
-    D --> E
-    F --> G["Release"]
-    
-    style A fill:#ADD8E6
-    style G fill:#90EE90`
-        };
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (isDraggingFromToolbar) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                createNode(draggedType, x, y);
+                isDraggingFromToolbar = false;
+            }
+        });
 
-        const editor = document.getElementById('editor');
-        const preview = document.getElementById('preview');
-        const mermaidDiagram = document.getElementById('mermaidDiagram');
-
-        // Load first template on start
-        loadTemplate('simple');
-
-        function loadTemplate(name) {
-            editor.value = templates[name];
-            updatePreview();
+        function createNode(type, x, y) {
+            const id = nodeIdCounter++;
+            const node = {
+                id,
+                type,
+                x: Math.max(10, Math.min(x - 60, canvas.offsetWidth - 130)),
+                y: Math.max(10, Math.min(y - 25, canvas.offsetHeight - 50)),
+                text: type === 'start' ? 'Start' : type === 'end' ? 'End' : 'Node ' + id,
+                color: type === 'start' ? '#90EE90' : type === 'end' ? '#FFB6C6' : '#ADD8E6'
+            };
+            nodes.push(node);
+            renderNode(node);
         }
 
-        function updatePreview() {
-            const code = editor.value.trim();
-            if (!code) {
-                mermaidDiagram.innerHTML = '';
-                return;
+        function renderNode(node) {
+            let nodeEl = document.getElementById('node-' + node.id);
+            
+            if (!nodeEl) {
+                nodeEl = document.createElement('div');
+                nodeEl.id = 'node-' + node.id;
+                nodeEl.className = 'node';
+                if (node.type === 'diamond') nodeEl.classList.add('diamond');
+                if (node.type === 'circle') nodeEl.classList.add('circle');
+                if (node.type === 'roundrect') nodeEl.style.borderRadius = '20px';
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = 'node-text';
+                textSpan.textContent = node.text;
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'node-input';
+                input.value = node.text;
+                
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'node-close';
+                closeBtn.textContent = '✕';
+                closeBtn.onclick = (e) => { deleteNode(node.id); e.stopPropagation(); };
+                
+                nodeEl.appendChild(input);
+                nodeEl.appendChild(textSpan);
+                nodeEl.appendChild(closeBtn);
+                
+                canvas.appendChild(nodeEl);
+                makeNodeDraggable(nodeEl, node.id);
+                
+                nodeEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectNode(node.id);
+                });
+
+                nodeEl.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    editNode(node.id);
+                });
             }
 
-            mermaidDiagram.textContent = code;
-            mermaid.contentLoaded();
+            nodeEl.style.left = node.x + 'px';
+            nodeEl.style.top = node.y + 'px';
+            nodeEl.style.background = node.color;
+            nodeEl.querySelector('.node-text').textContent = node.text;
+            nodeEl.querySelector('.node-input').value = node.text;
         }
 
-        editor.addEventListener('input', updatePreview);
+        function makeNodeDraggable(el, id) {
+            let offsetX = 0, offsetY = 0, isDown = false;
+
+            el.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('node-input')) return;
+                isDown = true;
+                offsetX = e.clientX - el.offsetLeft;
+                offsetY = e.clientY - el.offsetTop;
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDown) {
+                    const node = nodes.find(n => n.id === id);
+                    node.x = Math.max(0, e.clientX - canvas.getBoundingClientRect().left - offsetX);
+                    node.y = Math.max(0, e.clientY - canvas.getBoundingClientRect().top - offsetY);
+                    el.style.left = node.x + 'px';
+                    el.style.top = node.y + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDown = false;
+            });
+        }
+
+        function selectNode(id) {
+            document.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
+            selectedNode = id;
+            document.getElementById('node-' + id).classList.add('selected');
+            emptyProperties.style.display = 'none';
+            propertiesContent.style.display = 'block';
+            nodeText.value = nodes.find(n => n.id === id).text;
+
+            const color = nodes.find(n => n.id === id).color;
+            document.querySelectorAll('.color-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.color === color);
+            });
+        }
+
+        function editNode(id) {
+            selectNode(id);
+            const nodeEl = document.getElementById('node-' + id);
+            nodeEl.classList.add('editing');
+            const input = nodeEl.querySelector('.node-input');
+            input.focus();
+            input.select();
+
+            input.addEventListener('blur', () => {
+                nodeEl.classList.remove('editing');
+                const node = nodes.find(n => n.id === id);
+                node.text = input.value || 'Node';
+                renderNode(node);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        }
+
+        function deleteNode(id) {
+            nodes = nodes.filter(n => n.id !== id);
+            document.getElementById('node-' + id).remove();
+            if (selectedNode === id) {
+                selectedNode = null;
+                emptyProperties.style.display = 'block';
+                propertiesContent.style.display = 'none';
+            }
+        }
+
+        function deleteSelectedNode() {
+            if (selectedNode !== null) {
+                deleteNode(selectedNode);
+            }
+        }
+
+        function clearCanvas() {
+            if (confirm('Clear all nodes? This cannot be undone.')) {
+                nodes = [];
+                document.querySelectorAll('.node').forEach(el => el.remove());
+                selectedNode = null;
+                emptyProperties.style.display = 'block';
+                propertiesContent.style.display = 'none';
+            }
+        }
+
+        nodeText.addEventListener('input', () => {
+            if (selectedNode !== null) {
+                const node = nodes.find(n => n.id === selectedNode);
+                node.text = nodeText.value;
+                renderNode(node);
+            }
+        });
+
+        document.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                if (selectedNode !== null) {
+                    const node = nodes.find(n => n.id === selectedNode);
+                    node.color = opt.dataset.color;
+                    renderNode(node);
+                    selectNode(selectedNode);
+                }
+            });
+        });
 
         function exportPDF() {
-            const element = document.getElementById('mermaidDiagram');
+            const element = document.querySelector('.canvas-content');
             const opt = {
                 margin: 10,
                 filename: 'flowchart.pdf',
@@ -405,68 +647,27 @@ flowchart TD
                 html2canvas: { scale: 2, allowTaint: true, useCORS: true },
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
             };
-
             html2pdf().set(opt).from(element).save();
-            showMessage('✅ PDF exported successfully!', 'success');
         }
 
-        function exportSVG() {
-            const svg = document.querySelector('.mermaid svg');
-            if (!svg) {
-                showMessage('❌ No diagram to export', 'error');
-                return;
-            }
-
-            const svgData = new XMLSerializer().serializeToString(svg);
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-
-            img.onload = function() {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
+        function exportPNG() {
+            const element = document.querySelector('.canvas-content');
+            html2canvas(element, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
                 link.download = 'flowchart.png';
                 link.click();
-                showMessage('✅ SVG exported successfully!', 'success');
-            };
-
-            img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+            });
         }
 
-        function exportJSON() {
-            const data = {
-                timestamp: new Date().toISOString(),
-                diagram: editor.value,
-                version: '1.0'
-            };
-
-            const link = document.createElement('a');
-            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
-            link.download = 'flowchart.json';
-            link.click();
-            showMessage('✅ JSON exported successfully!', 'success');
-        }
-
-        function copyToClipboard() {
-            editor.select();
-            document.execCommand('copy');
-            showMessage('✅ Copied to clipboard!', 'success');
-        }
-
-        function toggleEditMode() {
-            document.getElementById('templateHelp').classList.toggle('hidden');
-        }
-
-        function showMessage(text, type) {
-            const msg = document.createElement('div');
-            msg.className = type + '-message';
-            msg.textContent = text;
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 3000);
-        }
+        canvas.addEventListener('click', (e) => {
+            if (e.target === canvas) {
+                selectedNode = null;
+                document.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
+                emptyProperties.style.display = 'block';
+                propertiesContent.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
