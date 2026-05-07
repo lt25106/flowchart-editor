@@ -85,6 +85,12 @@
             cursor: grabbing;
         }
 
+        .tool-btn.active {
+            background: #764ba2;
+            color: white;
+            border-color: #764ba2;
+        }
+
         .icon {
             font-size: 16px;
         }
@@ -131,6 +137,15 @@
             background-size: 50px 50px;
         }
 
+        svg.connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
         .node {
             position: absolute;
             background: white;
@@ -148,6 +163,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 10;
         }
 
         .node:hover {
@@ -159,6 +175,12 @@
             background: #667eea;
             color: white;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .node.connecting {
+            border-color: #FFD700;
+            border-width: 3px;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
         }
 
         .node.diamond {
@@ -313,6 +335,12 @@
             background: #764ba2;
         }
 
+        .btn.active {
+            background: #764ba2;
+            color: white;
+            border-color: #764ba2;
+        }
+
         @media print {
             .sidebar, .header, .properties-panel, .footer {
                 display: none;
@@ -338,6 +366,13 @@
 
         .empty-state-text {
             font-size: 14px;
+        }
+
+        .connection-line {
+            stroke: #667eea;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
         }
     </style>
 </head>
@@ -372,6 +407,13 @@
             </div>
 
             <div class="tool-section">
+                <div class="tool-section-title">Connections</div>
+                <button class="tool-btn" id="connectBtn" onclick="toggleConnectMode()" style="cursor: pointer; border: 2px solid #667eea; color: #667eea;">
+                    <span class="icon">🔗</span> Connect
+                </button>
+            </div>
+
+            <div class="tool-section">
                 <div class="tool-section-title">Actions</div>
                 <button class="tool-btn" onclick="clearCanvas()" style="cursor: pointer; border: 2px solid #ff4444; color: #ff4444;">
                     <span class="icon">🗑</span> Clear All
@@ -390,7 +432,15 @@
         </div>
 
         <div class="canvas">
-            <div class="canvas-content" id="canvas"></div>
+            <div class="canvas-content" id="canvas">
+                <svg class="connections-svg" id="connectionsSvg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#667eea" />
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
         </div>
 
         <div class="footer">
@@ -432,15 +482,20 @@
 
     <script>
         let nodes = [];
+        let connections = [];
         let selectedNode = null;
         let nodeIdCounter = 0;
         let isDraggingFromToolbar = false;
         let draggedType = null;
+        let isConnectingMode = false;
+        let firstNodeForConnection = null;
 
         const canvas = document.getElementById('canvas');
         const nodeText = document.getElementById('nodeText');
         const emptyProperties = document.getElementById('empty-properties');
         const propertiesContent = document.getElementById('properties-content');
+        const connectionsSvg = document.getElementById('connectionsSvg');
+        const connectBtn = document.getElementById('connectBtn');
 
         // Toolbar drag start
         document.querySelectorAll('.tool-btn[data-type]').forEach(btn => {
@@ -516,7 +571,11 @@
                 
                 nodeEl.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    selectNode(node.id);
+                    if (isConnectingMode) {
+                        handleConnectionClick(node.id);
+                    } else {
+                        selectNode(node.id);
+                    }
                 });
 
                 nodeEl.addEventListener('dblclick', (e) => {
@@ -549,6 +608,7 @@
                     node.y = Math.max(0, e.clientY - canvas.getBoundingClientRect().top - offsetY);
                     el.style.left = node.x + 'px';
                     el.style.top = node.y + 'px';
+                    drawConnections();
                 }
             });
 
@@ -595,12 +655,14 @@
 
         function deleteNode(id) {
             nodes = nodes.filter(n => n.id !== id);
+            connections = connections.filter(c => c.from !== id && c.to !== id);
             document.getElementById('node-' + id).remove();
             if (selectedNode === id) {
                 selectedNode = null;
                 emptyProperties.style.display = 'block';
                 propertiesContent.style.display = 'none';
             }
+            drawConnections();
         }
 
         function deleteSelectedNode() {
@@ -610,13 +672,97 @@
         }
 
         function clearCanvas() {
-            if (confirm('Clear all nodes? This cannot be undone.')) {
+            if (confirm('Clear all nodes and connections? This cannot be undone.')) {
                 nodes = [];
+                connections = [];
                 document.querySelectorAll('.node').forEach(el => el.remove());
+                connectionsSvg.querySelectorAll('.connection-line').forEach(el => el.remove());
                 selectedNode = null;
                 emptyProperties.style.display = 'block';
                 propertiesContent.style.display = 'none';
+                isConnectingMode = false;
+                connectBtn.classList.remove('active');
             }
+        }
+
+        function toggleConnectMode() {
+            isConnectingMode = !isConnectingMode;
+            firstNodeForConnection = null;
+            connectBtn.classList.toggle('active');
+            document.querySelectorAll('.node').forEach(el => el.classList.remove('connecting'));
+            
+            if (isConnectingMode) {
+                connectBtn.textContent = '🔗 Cancel';
+            } else {
+                connectBtn.textContent = '🔗 Connect';
+            }
+        }
+
+        function handleConnectionClick(nodeId) {
+            if (firstNodeForConnection === null) {
+                firstNodeForConnection = nodeId;
+                document.getElementById('node-' + nodeId).classList.add('connecting');
+                connectBtn.textContent = '➡️ Select second node';
+            } else if (firstNodeForConnection === nodeId) {
+                // Clicked same node, cancel
+                firstNodeForConnection = null;
+                document.getElementById('node-' + nodeId).classList.remove('connecting');
+                connectBtn.textContent = '🔗 Connect';
+            } else {
+                // Create connection
+                const connection = {
+                    from: firstNodeForConnection,
+                    to: nodeId
+                };
+                
+                if (!connections.find(c => c.from === connection.from && c.to === connection.to)) {
+                    connections.push(connection);
+                }
+                
+                document.getElementById('node-' + firstNodeForConnection).classList.remove('connecting');
+                firstNodeForConnection = null;
+                connectBtn.textContent = '🔗 Connect';
+                drawConnections();
+            }
+        }
+
+        function drawConnections() {
+            connectionsSvg.querySelectorAll('.connection-line').forEach(el => el.remove());
+            
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+                
+                if (fromNode && toNode) {
+                    const canvasRect = canvas.getBoundingClientRect();
+                    
+                    const fromX = fromNode.x + 60;
+                    const fromY = fromNode.y + 25;
+                    const toX = toNode.x + 60;
+                    const toY = toNode.y + 25;
+                    
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    line.setAttribute('class', 'connection-line');
+                    
+                    const dx = toX - fromX;
+                    const dy = toY - fromY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const ratio = distance ? 30 / distance : 0;
+                    
+                    const startX = fromX + dx * ratio;
+                    const startY = fromY + dy * ratio;
+                    const endX = toX - dx * ratio;
+                    const endY = toY - dy * ratio;
+                    
+                    const cp1X = fromX + (toX - fromX) / 3;
+                    const cp1Y = fromY;
+                    const cp2X = toX - (toX - fromX) / 3;
+                    const cp2Y = toY;
+                    
+                    line.setAttribute('d', `M ${startX} ${startY} C ${cp1X} ${cp1Y} ${cp2X} ${cp2Y} ${endX} ${endY}`);
+                    connectionsSvg.appendChild(line);
+                }
+            });
         }
 
         nodeText.addEventListener('input', () => {
@@ -661,11 +807,13 @@
         }
 
         canvas.addEventListener('click', (e) => {
-            if (e.target === canvas) {
-                selectedNode = null;
-                document.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
-                emptyProperties.style.display = 'block';
-                propertiesContent.style.display = 'none';
+            if (e.target === canvas || e.target.id === 'connectionsSvg') {
+                if (!isConnectingMode) {
+                    selectedNode = null;
+                    document.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
+                    emptyProperties.style.display = 'block';
+                    propertiesContent.style.display = 'none';
+                }
             }
         });
     </script>
