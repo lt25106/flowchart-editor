@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flowchart Editor - PDF Export</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 120px);
+            gap: 0;
+            max-width: 100%;
+        }
+
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-right: 1px solid #ddd;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            padding: 15px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .editor-toolbar button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .editor-toolbar button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .editor-toolbar button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .template-section {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .template-section label {
+            font-size: 12px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .template-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .template-buttons button {
+            padding: 6px 10px;
+            font-size: 11px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .template-buttons button:hover {
+            background: #e0e0e0;
+            border-color: #999;
+        }
+
+        #editor {
+            flex: 1;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            border: none;
+            resize: none;
+            background: #fafafa;
+            color: #333;
+        }
+
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            overflow: hidden;
+        }
+
+        .preview-header {
+            padding: 15px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+        }
+
+        #preview {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #c33;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #3c3;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #3c3;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        .footer {
+            background: #f9f9f9;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .footer button {
+            padding: 10px 20px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .footer button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .footer button.primary {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .footer button.primary:hover {
+            background: #764ba2;
+            border-color: #764ba2;
+        }
+
+        @media print {
+            body, .header, .editor-panel, .footer, .editor-toolbar, .template-section {
+                display: none;
+            }
+
+            .container {
+                height: auto;
+            }
+
+            .preview-panel {
+                border: none;
+                box-shadow: none;
+            }
+
+            #preview {
+                background: white;
+                padding: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .editor-panel {
+                border-right: none;
+                border-bottom: 1px solid #ddd;
+                max-height: 50vh;
+            }
+
+            .preview-panel {
+                max-height: 50vh;
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Flowchart Editor</h1>
+        <p>Create professional flowcharts and export to PDF</p>
+    </div>
+
+    <div class="container">
+        <div class="editor-panel">
+            <div class="editor-toolbar">
+                <button onclick="loadTemplate('simple')" class="template-btn">📋 Simple Flow</button>
+                <button onclick="loadTemplate('decision')" class="template-btn">🔀 Decision Tree</button>
+                <button onclick="loadTemplate('process')" class="template-btn">⚙️ Process Flow</button>
+                <button onclick="loadTemplate('swimlane')" class="template-btn">🏊 Swimlane</button>
+                <button onclick="toggleEditMode()" id="editBtn">✏️ Edit Code</button>
+            </div>
+
+            <div class="template-section hidden" id="templateHelp">
+                <label>📝 Mermaid Syntax Tips</label>
+                <div style="font-size: 12px; color: #666; line-height: 1.6;">
+                    <code>A["Box"]</code> | <code>B{"Diamond"}</code> | <code>C("Circle")</code><br>
+                    <code>A --> B</code> arrows | <code>A -->|Label| B</code> labels<br>
+                    <code>style A fill:#90EE90</code> colors
+                </div>
+            </div>
+
+            <textarea id="editor" spellcheck="false" placeholder="Enter Mermaid flowchart syntax here...
+
+Example:
+flowchart TD
+    A[Start] --> B[Process]
+    B --> C{Decision?}
+    C -->|Yes| D[End]
+    C -->|No| B"></textarea>
+        </div>
+
+        <div class="preview-panel">
+            <div class="preview-header">👁️ Preview</div>
+            <div id="preview">
+                <div class="mermaid" id="mermaidDiagram"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <button class="primary" onclick="exportPDF()">📑 Export to PDF</button>
+        <button onclick="exportSVG()">📥 SVG Export</button>
+        <button onclick="exportJSON()">📄 JSON Export</button>
+        <button onclick="window.print()">🖨️ Print</button>
+        <button onclick="copyToClipboard()">📋 Copy</button>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', theme: 'default' });
+
+        const templates = {
+            simple: `flowchart TD
+    A["Start"] --> B["Step 1"]
+    B --> C["Step 2"]
+    C --> D["End"]
+    
+    style A fill:#90EE90
+    style D fill:#FFB6C6`,
+
+            decision: `flowchart TD
+    A["Start"] --> B["Validate Input"]
+    B --> C{"Valid?"}
+    C -->|Yes| D["Process Data"]
+    C -->|No| E["Show Error"]
+    D --> F["End"]
+    E --> F
+    
+    style A fill:#90EE90
+    style F fill:#FFB6C6
+    style C fill:#FFE4B5`,
+
+            process: `flowchart LR
+    A["Receive Request"] --> B["Validate"]
+    B --> C{"Check Status"}
+    C -->|Approved| D["Process"]
+    C -->|Rejected| E["Notify User"]
+    D --> F["Send Response"]
+    E --> F
+    F --> G["Done"]
+    
+    style A fill:#ADD8E6
+    style G fill:#90EE90
+    style E fill:#FFB6C6`,
+
+            swimlane: `flowchart TD
+    subgraph Team1["Frontend Team"]
+        A["Design UI"] --> B["Implement Components"]
+    end
+    subgraph Team2["Backend Team"]
+        C["Design API"] --> D["Implement Endpoints"]
+    end
+    subgraph Team3["QA Team"]
+        E["Test Features"] --> F["Report Issues"]
+    end
+    
+    B --> C
+    D --> E
+    F --> G["Release"]
+    
+    style A fill:#ADD8E6
+    style G fill:#90EE90`
+        };
+
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const mermaidDiagram = document.getElementById('mermaidDiagram');
+
+        // Load first template on start
+        loadTemplate('simple');
+
+        function loadTemplate(name) {
+            editor.value = templates[name];
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const code = editor.value.trim();
+            if (!code) {
+                mermaidDiagram.innerHTML = '';
+                return;
+            }
+
+            mermaidDiagram.textContent = code;
+            mermaid.contentLoaded();
+        }
+
+        editor.addEventListener('input', updatePreview);
+
+        function exportPDF() {
+            const element = document.getElementById('mermaidDiagram');
+            const opt = {
+                margin: 10,
+                filename: 'flowchart.pdf',
+                image: { type: 'png', quality: 0.98 },
+                html2canvas: { scale: 2, allowTaint: true, useCORS: true },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            };
+
+            html2pdf().set(opt).from(element).save();
+            showMessage('✅ PDF exported successfully!', 'success');
+        }
+
+        function exportSVG() {
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) {
+                showMessage('❌ No diagram to export', 'error');
+                return;
+            }
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'flowchart.png';
+                link.click();
+                showMessage('✅ SVG exported successfully!', 'success');
+            };
+
+            img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+        }
+
+        function exportJSON() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                diagram: editor.value,
+                version: '1.0'
+            };
+
+            const link = document.createElement('a');
+            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
+            link.download = 'flowchart.json';
+            link.click();
+            showMessage('✅ JSON exported successfully!', 'success');
+        }
+
+        function copyToClipboard() {
+            editor.select();
+            document.execCommand('copy');
+            showMessage('✅ Copied to clipboard!', 'success');
+        }
+
+        function toggleEditMode() {
+            document.getElementById('templateHelp').classList.toggle('hidden');
+        }
+
+        function showMessage(text, type) {
+            const msg = document.createElement('div');
+            msg.className = type + '-message';
+            msg.textContent = text;
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
